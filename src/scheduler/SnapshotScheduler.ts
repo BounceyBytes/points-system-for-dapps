@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import { SnapshotEngine } from '../services/SnapshotEngine';
 import pointsCalculator from '../services/PointsCalculator';
-import mockDataSource from '../services/MockDataSource';
+import goldskyDataSource from '../services/GoldskyDataSource';
 import logger from '../utils/logger';
 import config from '../utils/config';
 
@@ -128,8 +128,8 @@ export class SnapshotScheduler {
   }
 }
 
-// Create singleton instance with mock data source
-// In production, replace mockDataSource with real implementation
-const scheduler = new SnapshotScheduler(new SnapshotEngine(mockDataSource));
+// Create singleton instance with Goldsky data source
+// Goldsky provides high-performance indexing for MANTRA Chain
+const scheduler = new SnapshotScheduler(new SnapshotEngine(goldskyDataSource));
 
 export default scheduler;

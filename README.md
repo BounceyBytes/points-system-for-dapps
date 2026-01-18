@@ -357,36 +357,44 @@ await snapshotScheduler.runDailySnapshot();
 
 ## Data Source Integration
 
-**V1 uses a mock data source** for demonstration. In production, replace with a real implementation.
+**V1 uses Goldsky subgraph for MANTRA Chain** to fetch real-time on-chain balance data.
 
-### Implementing a Real Data Source
+### Goldsky Integration (Default)
 
-1. Create a class that implements `IDataSource`:
+The system is pre-configured to use Goldsky's high-performance indexing infrastructure:
+
+1. **Deploy your subgraph** to Goldsky (see [GOLDSKY_INTEGRATION.md](docs/GOLDSKY_INTEGRATION.md))
+2. **Configure environment** with your subgraph URL:
+
+```env
+GOLDSKY_SUBGRAPH_URL="https://api.goldsky.com/api/public/project_<YOUR_PROJECT_ID>/subgraphs/fluxtra-mantra/1.0.0/gn"
+GOLDSKY_API_KEY=""  # Optional for private subgraphs
+```
+
+3. **The system automatically** fetches balances from your subgraph daily at 00:00 UTC
+
+**Full Guide:** See [docs/GOLDSKY_INTEGRATION.md](docs/GOLDSKY_INTEGRATION.md) for complete setup instructions.
+
+### Alternative Data Sources
+
+You can also implement custom data sources by creating a class that implements `IDataSource`:
 
 ```typescript
 import { IDataSource, BalanceData } from './interfaces/DataSource';
 
-export class SubgraphDataSource implements IDataSource {
+export class CustomDataSource implements IDataSource {
   async fetchBalances(intervalStart: Date, intervalEnd: Date): Promise<BalanceData[]> {
-    // Query your blockchain indexer / subgraph
-    // Return array of { address, productType, asset, effectiveBalance }
+    // Your custom logic (RPC, API, etc.)
+    return [];
   }
 
   async healthCheck(): Promise<boolean> {
-    // Ping your data source
     return true;
   }
 }
 ```
 
-2. Replace the mock in `src/scheduler/SnapshotScheduler.ts`:
-
-```typescript
-import { SubgraphDataSource } from '../services/SubgraphDataSource';
-
-const dataSource = new SubgraphDataSource();
-const scheduler = new SnapshotScheduler(new SnapshotEngine(dataSource));
-```
+Then update `src/scheduler/SnapshotScheduler.ts` to use your data source.
 
 ---
 

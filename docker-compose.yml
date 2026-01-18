@@ -38,6 +38,8 @@ services:
       NODE_ENV: production
       SNAPSHOT_CRON_SCHEDULE: "0 0 * * *"
       DATA_SOURCE_URL: ${DATA_SOURCE_URL:-http://localhost:8080/graphql}
+      GOLDSKY_SUBGRAPH_URL: ${GOLDSKY_SUBGRAPH_URL:-http://localhost:8080/graphql}
+      GOLDSKY_API_KEY: ${GOLDSKY_API_KEY:-}
       LOG_LEVEL: info
       DEFAULT_SEASON_START: "2026-01-01T00:00:00Z"
     ports:

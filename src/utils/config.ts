@@ -17,6 +17,10 @@ const configSchema = z.object({
     cronSchedule: z.string(),
     dataSourceUrl: z.string().url(),
   }),
+  goldsky: z.object({
+    subgraphUrl: z.string().url(),
+    apiKey: z.string().optional(),
+  }),
   logging: z.object({
     level: z.enum(['error', 'warn', 'info', 'debug', 'verbose']),
   }),
@@ -37,6 +41,10 @@ const rawConfig = {
   snapshot: {
     cronSchedule: process.env.SNAPSHOT_CRON_SCHEDULE || '0 0 * * *',
     dataSourceUrl: process.env.DATA_SOURCE_URL || 'http://localhost:8080/graphql',
+  },
+  goldsky: {
+    subgraphUrl: process.env.GOLDSKY_SUBGRAPH_URL || process.env.DATA_SOURCE_URL || 'http://localhost:8080/graphql',
+    apiKey: process.env.GOLDSKY_API_KEY,
   },
   logging: {
     level: (process.env.LOG_LEVEL || 'info') as 'error' | 'warn' | 'info' | 'debug' | 'verbose',
