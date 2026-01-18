@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: points-system-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: points_system
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Points System API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: points-system-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/points_system?schema=public
+      PORT: 3000
+      NODE_ENV: production
+      SNAPSHOT_CRON_SCHEDULE: "0 0 * * *"
+      DATA_SOURCE_URL: ${DATA_SOURCE_URL:-http://localhost:8080/graphql}
+      LOG_LEVEL: info
+      DEFAULT_SEASON_START: "2026-01-01T00:00:00Z"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./logs:/app/logs
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && node dist/index.js"
+
+volumes:
+  postgres_data:
+    driver: local

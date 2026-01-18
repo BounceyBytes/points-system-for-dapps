@@ -1,0 +1,144 @@
+// Prisma schema for Points System V1
+// Implements: Deterministic, append-only, auditable points ledger
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// SEASONS: Discrete time periods for points accumulation
+// ============================================================================
+
+model Season {
+  id            String   @id @default(uuid()) @db.Uuid
+  seasonNumber  Int      @unique @map("season_number")
+  startTime     DateTime @map("start_time") @db.Timestamptz(6)
+  endTime       DateTime? @map("end_time") @db.Timestamptz(6)
+  isActive      Boolean  @default(false) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  snapshots     Snapshot[]
+  emissionRates EmissionRate[]
+  pointsLedger  PointsLedger[]
+
+  @@index([seasonNumber])
+  @@index([isActive])
+  @@map("seasons")
+}
+
+// ============================================================================
+// SNAPSHOTS: Immutable balance captures at fixed intervals
+// ============================================================================
+
+enum SnapshotStatus {
+  pending
+  completed
+  failed
+}
+
+model Snapshot {
+  id            String         @id @default(uuid()) @db.Uuid
+  seasonId      String         @map("season_id") @db.Uuid
+  snapshotTime  DateTime       @map("snapshot_time") @db.Timestamptz(6)
+  intervalStart DateTime       @map("interval_start") @db.Timestamptz(6)
+  intervalEnd   DateTime       @map("interval_end") @db.Timestamptz(6)
+  status        SnapshotStatus @default(pending)
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  completedAt   DateTime?      @map("completed_at") @db.Timestamptz(6)
+
+  // Relations
+  season        Season @relation(fields: [seasonId], references: [id])
+  balances      SnapshotBalance[]
+  pointsLedger  PointsLedger[]
+
+  @@unique([seasonId, intervalStart, intervalEnd])
+  @@index([seasonId])
+  @@index([snapshotTime])
+  @@index([status])
+  @@map("snapshots")
+}
+
+// ============================================================================
+// SNAPSHOT BALANCES: User balances at snapshot time
+// ============================================================================
+
+enum ProductType {
+  LP
+  LST
+  Vault
+}
+
+model SnapshotBalance {
+  id               String      @id @default(uuid()) @db.Uuid
+  snapshotId       String      @map("snapshot_id") @db.Uuid
+  address          String      @db.VarChar(66) // 0x + 64 chars for EVM
+  productType      ProductType @map("product_type")
+  asset            String      @db.VarChar(100)
+  effectiveBalance Decimal     @map("effective_balance") @db.Decimal(38, 18)
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  snapshot Snapshot @relation(fields: [snapshotId], references: [id])
+
+  @@unique([snapshotId, address, productType, asset])
+  @@index([snapshotId])
+  @@index([address])
+  @@index([productType])
+  @@map("snapshot_balances")
+}
+
+// ============================================================================
+// EMISSION RATES: Points per token per day (explicit constants)
+// ============================================================================
+
+model EmissionRate {
+  id                   String      @id @default(uuid()) @db.Uuid
+  seasonId             String      @map("season_id") @db.Uuid
+  productType          ProductType @map("product_type")
+  asset                String      @db.VarChar(100)
+  ratePerTokenPerDay   Decimal     @map("rate_per_token_per_day") @db.Decimal(38, 18)
+  effectiveFrom        DateTime    @map("effective_from") @db.Timestamptz(6)
+  effectiveUntil       DateTime?   @map("effective_until") @db.Timestamptz(6)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  season Season @relation(fields: [seasonId], references: [id])
+
+  @@index([seasonId])
+  @@index([productType, asset])
+  @@index([effectiveFrom, effectiveUntil])
+  @@map("emission_rates")
+}
+
+// ============================================================================
+// POINTS LEDGER: Single source of truth (APPEND-ONLY)
+// ============================================================================
+
+model PointsLedger {
+  id                String      @id @default(uuid()) @db.Uuid
+  address           String      @db.VarChar(66)
+  snapshotId        String      @map("snapshot_id") @db.Uuid
+  seasonId          String      @map("season_id") @db.Uuid
+  pointsDelta       Decimal     @map("points_delta") @db.Decimal(38, 18)
+  reason            String      @db.Text
+  productType       ProductType @map("product_type")
+  asset             String      @db.VarChar(100)
+  calculationBasis  Json        @map("calculation_basis") // Stores calculation details for auditability
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  // Relations
+  snapshot Snapshot @relation(fields: [snapshotId], references: [id])
+  season   Season   @relation(fields: [seasonId], references: [id])
+
+  @@index([address])
+  @@index([seasonId])
+  @@index([snapshotId])
+  @@index([createdAt])
+  @@map("points_ledger")
+}
